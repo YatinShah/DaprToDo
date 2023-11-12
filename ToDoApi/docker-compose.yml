@@ -49,7 +49,7 @@ services:
 ################## Dapr service related  containers ###############
   placement:
     container_name: placement
-    image: "daprio/dapr"
+    image: "daprio/dapr:1.12.0"
     command: ["./placement", 
         # "--metadata-enabled","true",
         "--log-level","debug", "--port", "50006"]

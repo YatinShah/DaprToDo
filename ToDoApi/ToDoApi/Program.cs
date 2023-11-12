@@ -1,4 +1,5 @@
-
+//#define START_DAPRD_SELFHOST //set this to let sidekick start dapr (in local non-docker selfhosted mode only).
+//For containerized env, do not set this, and start  app and then run sidecar container.
 using Dapr.Client;
 using Dapr.Extensions.Configuration;
 
@@ -39,8 +40,7 @@ namespace ToDoApi
                 builder.Services.AddEndpointsApiExplorer();
                 builder.Services.AddSwaggerGen();
 
-                //if (env == Environments.Development) //add sidecar detailing when in debug mode.
-                builder.Services.ExplicitConfigForDebug(builder.Environment, config);
+                builder.Services.CustomSidecarConfigAndConnect(builder.Environment, config);
 
 
                 var app = builder.Build();
@@ -53,7 +53,7 @@ namespace ToDoApi
                     app.UseSwagger();
                     app.UseSwaggerUI();
                 }
-                //await WaitForSidecarToStartAsync();
+                await WaitForSidecarToStartAsync();
 
                 //await DaprAddSecretStoreAsync(builder.Configuration, logger);
 
@@ -73,6 +73,7 @@ namespace ToDoApi
             return 0;
         }
 
+        // does not work if all the time, hence better to call it when needed in an API Call.!!
         private static async Task DaprAddSecretStoreAsync(ConfigurationManager configMgr, ILogger<Program> logger)
         {
             using var client = new DaprClientBuilder().Build();
@@ -87,14 +88,16 @@ namespace ToDoApi
 
             logger.LogInformation("----- Secret from ConfigurationManager: " + configMgr.GetSection("secret").Value);
         }
-
+        // Do not wait for sidecar to start unless starting it locally in non-docker selfhosted mode.
         private static async Task WaitForSidecarToStartAsync()
         {
+#if START_DAPRD_SELFHOST
             // Wait for the Dapr sidecar to report healthy before attempting to use any Dapr components.
             using var client = new DaprClientBuilder().Build();
             using var tokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(1));
             // use the await keyword in your service instead
             await client.WaitForSidecarAsync(tokenSource.Token);
+#endif
         }
     }
 
@@ -112,16 +115,16 @@ namespace ToDoApi
             return services;
         }
 
-        public static IServiceCollection ExplicitConfigForDebug(this IServiceCollection services, IWebHostEnvironment env, IConfigurationRoot config)
+        public static IServiceCollection CustomSidecarConfigAndConnect(this IServiceCollection services, IWebHostEnvironment env, IConfigurationRoot config)
         {
             var sidecarOptions = new DaprSidecarOptions
             {
                 AppId = Program.appDaprName,
                 AppPort = 5000,
                 DaprGrpcPort = 50001,
-                DaprHttpPort=3506,
+                DaprHttpPort = 3506,
                 AppProtocol = "http",
-                Enabled =false, //*************************KEY*******************
+                Enabled = true, //*************************KEY*******************
                 ResourcesDirectory = Path.Combine(env.ContentRootPath, "Dapr/Components"),
 
                 // Set the working directory to our project to allow relative paths in component yaml files
@@ -129,13 +132,13 @@ namespace ToDoApi
                 AllowedOrigins = "*",
                 LogLevel = LogLevel.Debug.ToString(),
             };
-
+#if START_DAPRD_SELFHOST
             // Build the default Sidekick controller
-            //var sidekick = new DaprSidekickBuilder().Build();
+            var sidekick = new DaprSidekickBuilder().Build();
 
             // Start the Dapr Sidecar early in the pipeline, this will come up in the background
-            //sidekick.Sidecar.Start(() => new DaprOptions { Sidecar = sidecarOptions }, DaprCancellationToken.None);
-
+            sidekick.Sidecar.Start(() => new DaprOptions { Sidecar = sidecarOptions }, DaprCancellationToken.None);
+#endif
             // Add Dapr Sidekick
             services.AddDaprSidekick(config, o =>
             {
@@ -151,7 +154,7 @@ namespace ToDoApi
         {
             app.UseRouting();
             app.UseCloudEvents();
-            //app.UseHealthChecks("/healthz");
+            //app.UseHealthChecks("/health");
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapSubscribeHandler();

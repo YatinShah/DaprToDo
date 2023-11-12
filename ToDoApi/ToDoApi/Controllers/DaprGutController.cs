@@ -17,10 +17,15 @@ namespace ToDoApi.Controllers
         public const string DefaultStoreName = "statestore";
         private readonly IDaprSidecarHost _daprSidecarHost;
         private readonly IDaprSidecarHttpClientFactory _httpClientFactory;
-        public DaprGutController(IDaprSidecarHost daprSidecarHost, IDaprSidecarHttpClientFactory httpClientFactory)
+        private readonly ILogger<DaprGutController> _logger;
+        private readonly IConfiguration _config;
+
+        public DaprGutController(ILogger<DaprGutController> logger, IConfiguration config,  IDaprSidecarHost daprSidecarHost, IDaprSidecarHttpClientFactory httpClientFactory)
         {
             _daprSidecarHost = daprSidecarHost;
             _httpClientFactory = httpClientFactory;
+            _logger = logger;
+            _config = config;
         }
         //copied from https://github.com/man-group/dapr-sidekick-dotnet/blob/main/samples/AspNetCore/ServiceInvocationSample/ServiceInvocationSample/Controllers/WeatherForecastController.cs
         [HttpGet("status")]
@@ -39,6 +44,7 @@ namespace ToDoApi.Controllers
             var appId = _daprSidecarHost.GetProcessOptions()?.AppId;
             if (appId == null)
             {
+                _logger.LogError($"appId was not found !!");
                 // AppId not available, sidecar probably not running
                 return null;
             }

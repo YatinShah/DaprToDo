@@ -39,8 +39,8 @@ namespace ToDoApi
                 builder.Services.AddEndpointsApiExplorer();
                 builder.Services.AddSwaggerGen();
 
-                if (env == Environments.Development) //add sidecar detailing when in debug mode.
-                    builder.Services.ExplicitConfigForDebug(builder.Environment, config);
+                //if (env == Environments.Development) //add sidecar detailing when in debug mode.
+                builder.Services.ExplicitConfigForDebug(builder.Environment, config);
 
 
                 var app = builder.Build();
@@ -55,7 +55,7 @@ namespace ToDoApi
                 }
                 //await WaitForSidecarToStartAsync();
 
-                await DaprAddSecretStoreAsync(builder.Configuration, logger);
+                //await DaprAddSecretStoreAsync(builder.Configuration, logger);
 
                 app.AddDaprConfigServices();
                 app.UseAuthorization();
@@ -119,6 +119,9 @@ namespace ToDoApi
                 AppId = Program.appDaprName,
                 AppPort = 5000,
                 DaprGrpcPort = 50001,
+                DaprHttpPort=3506,
+                AppProtocol = "http",
+                Enabled =false, //*************************KEY*******************
                 ResourcesDirectory = Path.Combine(env.ContentRootPath, "Dapr/Components"),
 
                 // Set the working directory to our project to allow relative paths in component yaml files
@@ -128,10 +131,10 @@ namespace ToDoApi
             };
 
             // Build the default Sidekick controller
-            var sidekick = new DaprSidekickBuilder().Build();
+            //var sidekick = new DaprSidekickBuilder().Build();
 
             // Start the Dapr Sidecar early in the pipeline, this will come up in the background
-            sidekick.Sidecar.Start(() => new DaprOptions { Sidecar = sidecarOptions }, DaprCancellationToken.None);
+            //sidekick.Sidecar.Start(() => new DaprOptions { Sidecar = sidecarOptions }, DaprCancellationToken.None);
 
             // Add Dapr Sidekick
             services.AddDaprSidekick(config, o =>
@@ -148,7 +151,7 @@ namespace ToDoApi
         {
             app.UseRouting();
             app.UseCloudEvents();
-            //app.UseHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { });
+            //app.UseHealthChecks("/healthz");
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapSubscribeHandler();

@@ -7,8 +7,6 @@ services:
     # command: --port 6380
     ports:
       - "6379:6379"
-    networks:
-      - todonw
 
 ########################## App containers #########
 
@@ -21,31 +19,29 @@ services:
     ports:
       - "50001:50001" # Dapr instances communicate over gRPC so we need to expose the gRPC port
       - "5000:5000" 
-    volumes:
-      - "./Dapr/:/app/Dapr"
-    networks:
-      - todonw
+      - "3506:3506" 
     # extra_hosts:
     #   host.docker.internal: "172.17.0.1"
 
   weathertodoapi-sidecar:
     container_name: weathertodoapi-sidecar
     image: daprio/dapr:edge
-    ports:
-      - "3506:3506" 
     command: [
       "./daprd",
      "--app-id", "weathertodoapi",
      "--app-port", "5000",
      "--placement-host-address", "placement:50006", # Dapr's placement service can be reach via the docker DNS entry
+     "--dapr-grpc-port", "50001",
      "--app-protocol","http",
      "--dapr-http-port", "3506",
+     "--resources-path", "/app/Dapr/Components",
      "--enable-api-logging","true"
      ]
+    volumes:
+      - "./ToDoApi/Dapr/:/app/Dapr"
     depends_on:
       - weathertodoapi
-    networks:
-      - todonw
+    network_mode: service:weathertodoapi
     # extra_hosts:
     #   host.docker.internal: "172.17.0.1"
 
@@ -54,12 +50,12 @@ services:
   placement:
     container_name: placement
     image: "daprio/dapr"
-    command: ["./placement", "--metadata-enabled","true","--log-level","debug", --port", "50006"]
+    command: ["./placement", 
+        # "--metadata-enabled","true",
+        "--log-level","debug", "--port", "50006"]
     ports:
       - "50006:50006"
       - "8080:8080"
-    networks:
-      - todonw
     # extra_hosts:
     #   host.docker.internal: "172.17.0.1"
 
@@ -69,10 +65,11 @@ services:
     image: openzipkin/zipkin
     ports:
       - "9411:9411"
-    networks:
-      - todonw
     # extra_hosts:
     #   host.docker.internal: "172.17.0.1"
 
-networks:
-  todonw:
+
+
+
+   # $> docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --build
+    # $> docker compose -f docker-compose.yml down

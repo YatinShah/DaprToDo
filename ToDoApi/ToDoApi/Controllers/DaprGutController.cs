@@ -1,4 +1,6 @@
-﻿using Man.Dapr.Sidekick;
+﻿using Dapr.Client;
+
+using Man.Dapr.Sidekick;
 using Man.Dapr.Sidekick.Http;
 
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +13,8 @@ namespace ToDoApi.Controllers
     [Route("[controller]")]
     public class DaprGutController : ControllerBase
     {
+
+        public const string DefaultStoreName = "statestore";
         private readonly IDaprSidecarHost _daprSidecarHost;
         private readonly IDaprSidecarHttpClientFactory _httpClientFactory;
         public DaprGutController(IDaprSidecarHost daprSidecarHost, IDaprSidecarHttpClientFactory httpClientFactory)
@@ -48,6 +52,22 @@ namespace ToDoApi.Controllers
 
             // Deserialize and return the result
             return JsonConvert.DeserializeObject<IEnumerable<WeatherForecast>>(result);
+        }
+
+        [HttpGet(Name = "GetSecret")]
+        public async Task<IActionResult> Get([FromServices] DaprClient daprClient, [FromServices] IConfiguration configuration)
+        {
+            // Can read secrets by using the client or IConfiguration through DI as well
+            var clientSecrets = await daprClient.GetSecretAsync(Program.secretStoreName, "secret");
+            var clientSecret = string.Join(",", clientSecrets.Select(d => d.Value));
+
+            var configurationSecret = configuration.GetSection("secret").Value;
+
+            return Ok(new
+            {
+                SecretFromClient = clientSecret,
+                SecretFromConfiguration = configurationSecret
+            });
         }
     }
 }

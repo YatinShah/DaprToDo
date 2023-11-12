@@ -1,8 +1,78 @@
 version: '3.4'
 
 services:
-  todoapi:
-    image: ${DOCKER_REGISTRY-}todoapi
+  redis:
+    container_name: redis
+    image: "redis:7.2-alpine"
+    # command: --port 6380
+    ports:
+      - "6379:6379"
+    networks:
+      - todonw
+
+########################## App containers #########
+
+  weathertodoapi:
+    container_name: weathertodoapi
+    image: ${DOCKER_REGISTRY-}weathertodoapi
     build:
       context: .
       dockerfile: ToDoApi/Dockerfile
+    ports:
+      - "50001:50001" # Dapr instances communicate over gRPC so we need to expose the gRPC port
+      - "5000:5000" 
+    volumes:
+      - "./Dapr/:/app/Dapr"
+    networks:
+      - todonw
+    # extra_hosts:
+    #   host.docker.internal: "172.17.0.1"
+
+  weathertodoapi-sidecar:
+    container_name: weathertodoapi-sidecar
+    image: daprio/dapr:edge
+    ports:
+      - "3506:3506" 
+    command: [
+      "./daprd",
+     "--app-id", "weathertodoapi",
+     "--app-port", "5000",
+     "--placement-host-address", "placement:50006", # Dapr's placement service can be reach via the docker DNS entry
+     "--app-protocol","http",
+     "--dapr-http-port", "3506",
+     "--enable-api-logging","true"
+     ]
+    depends_on:
+      - weathertodoapi
+    networks:
+      - todonw
+    # extra_hosts:
+    #   host.docker.internal: "172.17.0.1"
+
+
+################## Dapr service related  containers ###############
+  placement:
+    container_name: placement
+    image: "daprio/dapr"
+    command: ["./placement", "--metadata-enabled","true","--log-level","debug", --port", "50006"]
+    ports:
+      - "50006:50006"
+      - "8080:8080"
+    networks:
+      - todonw
+    # extra_hosts:
+    #   host.docker.internal: "172.17.0.1"
+
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - todonw
+    # extra_hosts:
+    #   host.docker.internal: "172.17.0.1"
+
+networks:
+  todonw:
